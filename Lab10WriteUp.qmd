@@ -136,26 +136,90 @@ To help us think about the interpretation, something that was challenging before
 ## Part a
 Suppose a player has a 50\% chance of winning a specific leg, that is let $p=0.50$. Let's look at the probability they win ($x=6$) legs in the match. Compute this probability over a sequence from $\theta=0.5$ to $\theta=1.5$ and plot it using a line where the $x$-axis is $\theta$ and the $y$-axis is $P(X=6)$.
 
+**Solution**
+
+```{r}
+ggdat <- tibble(theta = seq(0.5, 1.5, 0.001)) |>
+  mutate(Probability = daltbinom(6, size = 11, prob= 0.5, theta = theta))
+
+plot <- ggplot(ggdat) +
+  geom_line(aes(x = theta, y= Probability)) +
+  geom_hline(yintercept = 0) +
+  ylab("P(X=6)") +
+  xlab("Theta") +
+  theme_bw()
+
+plot
+```
+
 ## Part b
 Now, plot Altham's Multiplicative Binomial Distribution under the same parameters with $\theta=0.50$, $\theta=1$, and $\theta=1.5$. Use `ncol=1` in `facet_wrap()` to plot the PMFs in a single column for comparing.
+
+**Solurion**
+
+```{r}
+ggdat <- tibble(x = rep(seq(0, 11, 1),3), theta = c(rep(0.5, 12),rep(1,12),rep(1.5,12)))|>
+  mutate(PMF= daltbinom(x,11,0.5,theta))
+
+PMF.plot <- ggplot() +
+  geom_linerange(data = ggdat,
+                 aes(x = x, ymin = 0, ymax = PMF)) +
+  geom_hline(yintercept = 0) +
+  scale_x_continuous("x", breaks=0:11) +
+  scale_y_continuous(limits = c(0, 0.7)) +
+  ylab("Probability") +
+  facet_wrap(~theta, ncol = 1) +
+  theme_bw()
+
+PMF.plot
+```
 
 ## Part c
 What is your best assessment of what $\theta$ is doing in this setting. Consider when a 6-0 blowout is most likely, and when a 5-6 nail-biter is most likely. Note here we should treat the match as a fixed $n=11$ as we did for $n=3$ in Lab 8.\
 **Note:** In lab 8, we saw that small $\theta$ meant wins came in bunches (clumped together), so there were more 2-0 wins in a best of three series.
+
+When theta is greater, x, or the number of matches win, are likely to have higher probability at the center. 
 
 # Question 2
 
 ## Part a
 Altham's Multiplicative Binomial Distribution does not typically simplify to the clean $E(X)=np$ seen in the Binomial distribution, unless $\theta = 1$. Write out the expression that would need to be solved to find $E(X^k)$, and then write a function that computes it given the proposed parameter values $p$ (`prob`) and $\theta$ (`theta`).
 
+**Solution**
+
+$E(X^K) = \sum_{i=0}^{11} x_i^k f_x(x_i)$
+
+```{r}
+momdaltbinom <- function(p, theta, k){
+  x <- 0:11
+  sum(x^k*daltbinom(x,11,0.5,theta))
+}
+```
+
 ## Part b
 Describe how you can use your answer to part a to find Method of Moments estimates for the parameters $p$ and $\theta$ for Altham's Multiplicative Binomial Distribution based on data.
+
+**Solution**
+
+We can calculate the $\bar{x}$ and set it equal to $\sum_{i=0}^{11} x_i f_x(x_i)$; calculate $\overline{x^2}$ and set it equal to $\sum_{i=0}^{11} x_i ^2 f_x(x_i)$ and solve for p and theta.
 
 ## Part c
 Write a function that computes the log-likelihood for Altham's Multiplicative Binomial Distribution, given data (`x`) and proposed parameter values $p$ (`prob`) and $\theta$ (`theta`).
 
+**Solution**
+
+```{r}
+lldaltbinom <- function(data, p, theta){
+  sum(log(daltbinom(data,11,p,theta)))
+}
+```
+
 ## Part d
 Describe how you can use your answer to part c to find Maximum Likelihood estimates for the parameters $p$ and $\theta$ for Altham's Multiplicative Binomial Distribution based on data.
+
+**Solution**
+
+Use the function above and solve for the parameter that allows it to achieve maximum.
 
 # Lab 10
 Peter "Snakebite" Wright is a two-time Professional Darts Corporation World Champion (2020, 2022) and a former World No. 1. He is one of the sport's most decorated players, winning nearly 50 PDC titles including the World Matchplay, UK Open, and multiple European Championships. 
@@ -185,7 +249,20 @@ In `pdc2024.csv`, I have provided the data for the 2024 Premier League season. T
   * Nights 1 through 16 are best of 11 (first to 6), but the playoffs are extended. For consistency, keep nights 1 through 16 only.
   * Make two columns `WinnerLegs` and `LoserLegs` that keep track of the number of legs each player has won
   
-  Summarize the data. What do the data tell us about the breakdown of the results?
+Summarize the data. What do the data tell us about the breakdown of the results?
+
+**Solution**
+
+```{r}
+dat.pdc <- read_csv("pdc2024.csv")
+
+dat.pdc.clean <- dat.pdc |>
+  filter(Score != "w/o") |>
+  filter(Night != "Finals") |>
+  mutate(WinnerLegs = as.numeric(str_split(Score, "-", simplify = TRUE)[,1]),
+         LoserLegs  = as.numeric(str_split(Score, "-", simplify = TRUE)[,2]))
+
+```
 
 ## Altham's Multiplicative Binomial Distribution
 For each player in the 2024 season, use the number of legs won in each match to compute maximium likelihood estimates for $p$ and $\theta$. \
@@ -196,6 +273,10 @@ For each player in the 2024 season, use the number of legs won in each match to 
 **Note:** In Lecture on Monday, we used transformations to restrict how `optim()` searches the parameter space. For example, here, you might consider
 `p <- 1/(1+exp(-par[1]))` and `theta <- exp(par[2])`.
 * Make comments about the MLEs in the context of the standings.
+
+```{r}
+
+```
 
 ## Altham's Multiplicative Beta Binomial Distribution
 
