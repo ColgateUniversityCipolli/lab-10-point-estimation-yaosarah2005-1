@@ -275,7 +275,32 @@ For each player in the 2024 season, use the number of legs won in each match to 
 * Make comments about the MLEs in the context of the standings.
 
 ```{r}
+legwins <- function(name){
+  leg <- 0
+  for(i in 1:nrow(dat.pdc.clean)){
+    if(dat.pdc.clean$Winner[i]==name){
+      leg <- leg + 6
+    }
+    else if(dat.pdc.clean$Loser[i]==name){
+      leg <- leg + dat.pdc.clean$LoserLegs[i]
+    }
+  }
+  leg
+}
 
+legtotal <- function(name){
+  leg <- 0
+  for(i in 1:nrow(dat.pdc.clean)){
+    if(dat.pdc.clean$Winner[i]==name | dat.pdc.clean$Loser[i]==name){
+      leg <- leg + dat.pdc.clean$LoserLegs[i] + dat.pdc.clean$WinnerLegs[i]
+    }
+  }
+  leg  
+}
+player.turns <- table(c(dat.pdc.clean$Winner, dat.pdc.clean$Loser)) 
+summary <- tibble(Player = names(player.turns),
+                  LagWins = sapply(names(player.turns), legwins),
+                  LagTotal = sapply(names(player.turns),legtotal))   
 ```
 
 ## Altham's Multiplicative Beta Binomial Distribution
