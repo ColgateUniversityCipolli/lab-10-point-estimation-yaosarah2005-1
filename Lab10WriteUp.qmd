@@ -264,17 +264,8 @@ dat.pdc.clean <- dat.pdc |>
 
 ```
 
-## Altham's Multiplicative Binomial Distribution
-For each player in the 2024 season, use the number of legs won in each match to compute maximium likelihood estimates for $p$ and $\theta$. \
-**Note**: The "for each" here can be done more efficiently with a function or a loop!
-
-* Create a vector containing the number of legs won by the player. Note sometimes you will need to pull from winner's legs and sometimes from the loser's legs.
-* Find the MLE for the player using this data. Ensure to report $p$ and $\theta$ for each player in a nicely formatted table.\
-**Note:** In Lecture on Monday, we used transformations to restrict how `optim()` searches the parameter space. For example, here, you might consider
-`p <- 1/(1+exp(-par[1]))` and `theta <- exp(par[2])`.
-* Make comments about the MLEs in the context of the standings.
-
 ```{r}
+
 legwins <- function(name){
   leg <- 0
   for(i in 1:nrow(dat.pdc.clean)){
@@ -297,10 +288,95 @@ legtotal <- function(name){
   }
   leg  
 }
+```
+
+## Altham's Multiplicative Binomial Distribution
+For each player in the 2024 season, use the number of legs won in each match to compute maximium likelihood estimates for $p$ and $\theta$. \
+**Note**: The "for each" here can be done more efficiently with a function or a loop!
+
+* Create a vector containing the number of legs won by the player. Note sometimes you will need to pull from winner's legs and sometimes from the loser's legs.
+* Find the MLE for the player using this data. Ensure to report $p$ and $\theta$ for each player in a nicely formatted table.\
+**Note:** In Lecture on Monday, we used transformations to restrict how `optim()` searches the parameter space. For example, here, you might consider
+`p <- 1/(1+exp(-par[1]))` and `theta <- exp(par[2])`.
+* Make comments about the MLEs in the context of the standings.
+
+
+```{r}
 player.turns <- table(c(dat.pdc.clean$Winner, dat.pdc.clean$Loser)) 
-summary <- tibble(Player = names(player.turns),
-                  LagWins = sapply(names(player.turns), legwins),
-                  LagTotal = sapply(names(player.turns),legtotal))   
+
+# This function returns a data frame that contains two column. 
+# First column is number of legs the player wins in each match, 
+# and the second column is the total legs that the player played for each match.
+Win.each <- function(name){                      
+  total.turn <- as.numeric(player.turns[name])
+  win.each <- tibble(Win = rep(NA, total.turn),
+                    Total = rep(NA, total.turn))
+  n <- 1
+  for(i in 1:nrow(dat.pdc.clean)){
+    if(dat.pdc.clean$Winner[i]==name){ # If the player is the winner
+      win.each$Win[n] <- 6
+      win.each$Total[n] <- dat.pdc.clean$LoserLegs[i] + dat.pdc.clean$WinnerLegs[i]
+      n <- n + 1
+    }
+    else if(dat.pdc.clean$Loser[i]==name){ # If the player is the loser
+      win.each$Win[n] <- dat.pdc.clean$LoserLegs[i]
+      win.each$Total[n] <- dat.pdc.clean$LoserLegs[i] + dat.pdc.clean$WinnerLegs[i]
+      n <- n + 1 
+    }
+  }
+  win.each
+}
+
+# This function calculates the probability of the player 
+# wins x time with given probability and theta. 
+Prob.daltbinom <- function(x, size, prob, theta){  
+  sapply(1:length(x), function(i){  # Ensure it works on a vector
+    xi <- x[i]  
+    si <- size[i]  
+    if(xi == 6){  # If the player win the match
+      # Calculate the probability and ensuring the last leg is win
+      (choose(si-1,5)/choose(si, xi)) * daltbinom(xi, si, prob, theta) 
+    } else {  # If the player lose the match
+      # Calculate the probability and ensuring the last leg is lose
+      (choose(si-1, xi)/choose(si, xi)) * daltbinom(xi, si, prob, theta)  
+    }  
+  })  
+}
+
+# This function calculates the log likelihood of different parameters. 
+# In order to make it easier for optimization, it returns the negative log likelihood.
+llProb.daltbinom <- function(par, data){
+  p <- 1/(1+exp(-par[1]))  # Ensures probability is between 0 and 1
+  theta <- exp(par[2])     # Ensures theta is greater than 0
+  x <- data$Win
+  size <- data$Total
+  ll <- sum(log(Prob.daltbinom(x,size,p,theta)))
+  -ll
+}
+
+# Create a summary table for the result
+MLE.summary <- tibble(Name = names(player.turns),
+                      P = NA,
+                      Theta = NA)
+
+# Repeat the process for each player
+for(i in 1:nrow(MLE.summary)){
+  name <- MLE.summary$Name[i]
+  win.each <- Win.each(name) 
+  mle <- optim(par = c(0,0), fn = llProb.daltbinom, 
+             data = win.each)
+  MLE.summary$P[i] <- 1/(1+exp(-mle$par[1]))
+  MLE.summary$Theta[i] <- exp(mle$par[2])
+}
+```
+
+```{r}
+#| label: MLE.summary
+#| tbl-cap: "P and Theta for each player"
+#| tbl-align: "center"
+#| echo: false
+MLE.summary |>
+  knitr::kable(digits = 2)
 ```
 
 ## Altham's Multiplicative Beta Binomial Distribution
@@ -320,6 +396,69 @@ For each player in the 2024 season, use the number of legs won in each match to 
 \end{align*}
 * Make comments about the MLEs in the context of the standings.\
 **Note**: The players alternate who throws first in a leg has the mathematical "head start" to reach a finish before their opponent can take another turn. Players alternate who throws first with each leg.
+
+**Solution**
+```{r}
+# This function calculates the probability of the player 
+# wins x time with given alpha, beta, and theta. 
+Prob.daltbbinom <- function(x, size, alpha, beta, theta){  
+  sapply(1:length(x), function(i){  # Ensure it works on a vector
+    xi <- x[i]  
+    si <- size[i]  
+    if(xi == 6){  # If the player win the match
+      # Calculate the probability and ensuring the last leg is win
+      (choose(si-1,5)/choose(si, xi)) * daltbbinom(xi, si, alpha, beta, theta) 
+    } else {  # If the player lose the match
+      # Calculate the probability and ensuring the last leg is lose
+      (choose(si-1, xi)/choose(si, xi)) * daltbbinom(xi, si, alpha, beta, theta)  
+    }  
+  })  
+}
+
+# This function calculates the log likelihood of different parameters. 
+# In order to make it easier for optimization, it returns the negative log likelihood.
+llProb.daltbbinom <- function(par, data){
+  alpha <- exp(par[1])
+  beta <- exp(par[2]) 
+  theta <- exp(par[3])    
+  x <- data$Win
+  size <- data$Total
+  ll <- sum(log(Prob.daltbbinom(x,size,alpha, beta,theta)))
+  -ll
+}
+
+# Create a summary table for the result
+MLE.summary <- tibble(Name = names(player.turns),
+                      Alpha = NA,
+                      Beta = NA,
+                      Theta = NA,
+                      Mean = NA,
+                      Variance = NA)
+
+# Repeat the process for each player
+for(i in 1:nrow(MLE.summary)){
+  name <- MLE.summary$Name[i]
+  win.each <- Win.each(name) 
+  mle <- optim(par = c(0,0,0), fn = llProb.daltbbinom, 
+             data = win.each)
+  alpha <- exp(mle$par[1])
+  beta <- exp(mle$par[2])
+  MLE.summary$Alpha[i] <- alpha
+  MLE.summary$Beta[i] <- beta
+  MLE.summary$Theta[i] <- exp(mle$par[3])
+  MLE.summary$Mean[i] <- alpha / (alpha + beta)
+  MLE.summary$Variance[i] <- ((alpha * beta)/((alpha + beta)^2 * (alpha + beta + 1))) ^ (1/2)
+}
+```
+
+```{r}
+#| label: MLE.summary.2
+#| tbl-cap: "Alpha, Beta and Theta for each player"
+#| tbl-align: "center"
+#| echo: false
+MLE.summary |>
+  knitr::kable(digits = 2)
+```
 
 ## Executive Summary
 Summarize the work you've done here to provide a brief (200-300 word) data-driven summary of the 2024 Premier League season using your work in Lab 10. Your summary should be professional, clear, and all claims should be corroborated with statistical support.
