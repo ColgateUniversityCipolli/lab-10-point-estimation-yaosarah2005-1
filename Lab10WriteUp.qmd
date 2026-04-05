@@ -261,33 +261,53 @@ dat.pdc.clean <- dat.pdc |>
   filter(Night != "Finals") |>
   mutate(WinnerLegs = as.numeric(str_split(Score, "-", simplify = TRUE)[,1]),
          LoserLegs  = as.numeric(str_split(Score, "-", simplify = TRUE)[,2]))
-
 ```
 
 ```{r}
 
-legwins <- function(name){
-  leg <- 0
+Matchwins <- function(name){
+  win <- 0
   for(i in 1:nrow(dat.pdc.clean)){
     if(dat.pdc.clean$Winner[i]==name){
-      leg <- leg + 6
-    }
-    else if(dat.pdc.clean$Loser[i]==name){
-      leg <- leg + dat.pdc.clean$LoserLegs[i]
+      win <- win + 1
     }
   }
-  leg
+  win
 }
 
-legtotal <- function(name){
-  leg <- 0
+total <- function(name){
+  total <- 0
   for(i in 1:nrow(dat.pdc.clean)){
     if(dat.pdc.clean$Winner[i]==name | dat.pdc.clean$Loser[i]==name){
-      leg <- leg + dat.pdc.clean$LoserLegs[i] + dat.pdc.clean$WinnerLegs[i]
+      total <- total + 1
     }
   }
-  leg  
+  total 
 }
+
+player.turns <- table(c(dat.pdc.clean$Winner, dat.pdc.clean$Loser)) 
+summary <- tibble(Name = names(player.turns),
+                  Win = sapply(names(player.turns), Matchwins),
+                  Total = sapply(names(player.turns), total)) |>
+           mutate(Proportion = Win / Total)
+
+ggplot(data = summary) +
+  geom_bar(aes(x = Name, y = Proportion), stat = "identity") +
+  geom_hline(yintercept = 0) +
+  theme_bw() +
+  labs(x = "Player Name", y = "Winning Proportion") +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1, size = 10)
+  )
+```
+
+```{r}
+#| label: data.summary
+#| tbl-cap: "Matches won by each player"
+#| tbl-align: "center"
+#| echo: false
+summary |>
+  knitr::kable(digits = 2)
 ```
 
 ## Altham's Multiplicative Binomial Distribution
@@ -458,6 +478,28 @@ for(i in 1:nrow(MLE.summary)){
 #| echo: false
 MLE.summary |>
   knitr::kable(digits = 2)
+```
+
+```{r}
+Beta.plot <- function(i){
+  alpha <- MLE.summary$Alpha[i]
+  beta <- MLE.summary$Beta[i]
+  
+  ggdat <- tibble(x = seq(0, 1, 0.001)) |>
+  mutate(PDF = dbeta(x, alpha, beta))
+
+  PDF.plot <- ggplot(ggdat) +
+    geom_line(aes(x = x, y= PDF)) +
+    geom_hline(yintercept = 0) +
+    xlab(MLE.summary$Name[i]) +
+    ylab("Density") +
+    theme_bw()
+  PDF.plot
+}
+
+Beta.plot(1) | Beta.plot(2) | Beta.plot(3)
+Beta.plot(4) | Beta.plot(5) | Beta.plot(6)
+Beta.plot(7) | Beta.plot(8)
 ```
 
 ## Executive Summary
