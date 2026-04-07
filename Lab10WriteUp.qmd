@@ -178,7 +178,8 @@ PMF.plot
 What is your best assessment of what $\theta$ is doing in this setting. Consider when a 6-0 blowout is most likely, and when a 5-6 nail-biter is most likely. Note here we should treat the match as a fixed $n=11$ as we did for $n=3$ in Lab 8.\
 **Note:** In lab 8, we saw that small $\theta$ meant wins came in bunches (clumped together), so there were more 2-0 wins in a best of three series.
 
-When theta is greater, x, or the number of matches win, are likely to have higher probability at the center. 
+**Solution**
+When theta is greater, x, or the number of matches win, are likely to have higher probability at the center. This means when theta is lower, 6-0 is more likely and when theta is higher, 6-5 are more likely.
 
 # Question 2
 
@@ -209,8 +210,11 @@ Write a function that computes the log-likelihood for Altham's Multiplicative Bi
 **Solution**
 
 ```{r}
-lldaltbinom <- function(data, p, theta){
-  sum(log(daltbinom(data,11,p,theta)))
+lldaltbinom <- function(par, data, MLE = F){
+  p <- ifelse(MLE, 1/(1+exp(-par[1])), par[1])
+  theta <- ifelse(MLE, exp(par[2]), par[2])
+  ll <- sum(log(daltbinom(data,11,p,theta)))
+  ifelse(MLE, -ll, ll)
 }
 ```
 
@@ -219,7 +223,7 @@ Describe how you can use your answer to part c to find Maximum Likelihood estima
 
 **Solution**
 
-Use the function above and solve for the parameter that allows it to achieve maximum.
+Use optimum() to find the parameter that allows the log likelihood function to have the greatest value, and set MLE in the function equal to True.
 
 # Lab 10
 Peter "Snakebite" Wright is a two-time Professional Darts Corporation World Champion (2020, 2022) and a former World No. 1. He is one of the sport's most decorated players, winning nearly 50 PDC titles including the World Matchplay, UK Open, and multiple European Championships. 
@@ -285,30 +289,86 @@ total <- function(name){
   total 
 }
 
-player.turns <- table(c(dat.pdc.clean$Winner, dat.pdc.clean$Loser)) 
-summary <- tibble(Name = names(player.turns),
-                  Win = sapply(names(player.turns), Matchwins),
-                  Total = sapply(names(player.turns), total)) |>
-           mutate(Proportion = Win / Total)
+legwins <- function(name){
+  legwin <- 0
+  for(i in 1:nrow(dat.pdc.clean)){
+    if(dat.pdc.clean$Winner[i]==name){
+      legwin <- legwin + 6
+    }
+    else if(dat.pdc.clean$Loser[i]==name){
+      legwin <- legwin + dat.pdc.clean$LoserLegs[i]
+    }
+  }
+  legwin
+}
 
-ggplot(data = summary) +
+legtotal <- function(name){
+  total <- 0
+  for(i in 1:nrow(dat.pdc.clean)){
+    if(dat.pdc.clean$Winner[i]==name | dat.pdc.clean$Loser[i]==name){
+      total <- total + dat.pdc.clean$LoserLegs[i] + dat.pdc.clean$WinnerLegs[i]
+    }
+  }
+  total 
+}
+
+player.turns <- table(c(dat.pdc.clean$Winner, dat.pdc.clean$Loser)) 
+match.summary <- tibble(Name = names(player.turns),
+                  Match.Win = sapply(names(player.turns), Matchwins),
+                  Match.Total = sapply(names(player.turns), total)) |>
+                  mutate(Proportion = Match.Win / Match.Total)
+
+leg.summary <-  tibble(Name = names(player.turns),
+                       Leg.Win = sapply(names(player.turns), legwins),
+                       Leg.Total = sapply(names(player.turns), legtotal))  |>
+                mutate(Proportion = Leg.Win / Leg.Total)
+
+match.plot <- ggplot(data = match.summary) +
   geom_bar(aes(x = Name, y = Proportion), stat = "identity") +
   geom_hline(yintercept = 0) +
   theme_bw() +
-  labs(x = "Player Name", y = "Winning Proportion") +
-  theme(
-    axis.text.x = element_text(angle = 45, hjust = 1, size = 10)
-  )
+  labs(x = "Player Name", y = "Winning Matches Proportion") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 10))
+
+leg.plot <- ggplot(data = leg.summary) +
+  geom_bar(aes(x = Name, y = Proportion), stat = "identity") +
+  geom_hline(yintercept = 0) +
+  theme_bw() +
+  labs(x = "Player Name", y = "Winning Legs Proportion") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 10))
+
 ```
 
 ```{r}
-#| label: data.summary
+#| label: matchsummary
 #| tbl-cap: "Matches won by each player"
 #| tbl-align: "center"
 #| echo: false
-summary |>
+match.summary |>
   knitr::kable(digits = 2)
 ```
+
+```{r}
+match.plot
+```
+
+```{r}
+#| label: legsummary
+#| tbl-cap: "Legs won by each player"
+#| tbl-align: "center"
+#| echo: false
+leg.summary |>
+  knitr::kable(digits = 2)
+```
+
+```{r}
+leg.plot
+```
+
+I use the data to calculate the total number of matches played by each player and the number of matches they won. I also compute their match winning proportions. The results show that Peter Wright has the lowest winning proportion, while Luke Littler has the highest.
+
+Additionally, I calculate the total number of legs played by each player and the number of legs they won. There is less variation in leg winning proportions compared to match winning proportions. Although Peter Wright still has the lowest proportion, his leg winning proportion is a lot higher than his match winning proportion, but it is still lower than other players.
+
 
 ## Altham's Multiplicative Binomial Distribution
 For each player in the 2024 season, use the number of legs won in each match to compute maximium likelihood estimates for $p$ and $\theta$. \
@@ -348,7 +408,10 @@ Win.each <- function(name){
 }
 
 # This function calculates the probability of the player 
-# wins x time with given probability and theta. 
+# winning x time in n legs with given probability and theta. 
+# If the player win the match, it ensures the last leg is a win, 
+# If the player lose the match, it ensures the last leg is a lose.
+
 Prob.daltbinom <- function(x, size, prob, theta){  
   sapply(1:length(x), function(i){  # Ensure it works on a vector
     xi <- x[i]  
@@ -399,6 +462,8 @@ MLE.summary |>
   knitr::kable(digits = 2)
 ```
 
+The data represent the maximum likelihood of p and theta for each player. It means each player are most likely to have p probability of winning each match if their results follows Altham's Multiplicative Binomial Distribution. 
+
 ## Altham's Multiplicative Beta Binomial Distribution
 
 For each player in the 2024 season, use the number of legs won in each match to compute maxmium likelihood estimates for $p$ and $\theta$.\
@@ -434,6 +499,8 @@ Prob.daltbbinom <- function(x, size, alpha, beta, theta){
     }  
   })  
 }
+
+
 
 # This function calculates the log likelihood of different parameters. 
 # In order to make it easier for optimization, it returns the negative log likelihood.
@@ -502,5 +569,13 @@ Beta.plot(4) | Beta.plot(5) | Beta.plot(6)
 Beta.plot(7) | Beta.plot(8)
 ```
 
+The data represent the maximum likelihood of alpha, beta, and theta for each player. Alpha and beta determines the probability of winning each match for the player if their results follows Altham's Multiplicative Beta Binomial Distribution. 
+
 ## Executive Summary
 Summarize the work you've done here to provide a brief (200-300 word) data-driven summary of the 2024 Premier League season using your work in Lab 10. Your summary should be professional, clear, and all claims should be corroborated with statistical support.
+
+For each player in the 2024 Premier League season data, I compute the number of matches and the total legs they played, and I calculate the proportion of matches and legs they won. The winning proportion of total matches range from 0.11 to 0.67. Luke Littler has the highest proportion, and Peter Wright has the lowest proportion. The winning proportion of total legs range from 0.37 to 0.56, and it contains less variation. Most players has a winning proportion aroung 0.5. Even though Peter Wright still has the lowest proportion, his leg winning proportion(0.37) is a lot higher than his match winning proportion (0.11).
+
+I use the number of legs won in each match to compute the maximium likelihood estimates for $p$ and $\theta$ for each player, assuming the probability of the number of legs each player win in a match follows Altham's Multiplicative Binomial Distribution. The result demonstrates that the probability of each player winning a leg is mostly consistent with the result from winning proportion, as Luke Littler has the highest probability (0.59) and Peter Wright has the lowest probability (0.24). The higher the $\theta$ is, the more likely for players to win matches with results 6-5 than 6-0. For most players, it is around 1.1, and Peter Wright has the highest $\theta$ (1.30), and Rob Cross has the lowest $\theta$ (1.04).
+
+I repeat the process but with assuming the probability follows Altham's multiplicative Beta Binomial Distribution. I estimated the parameter $\alpha$, $\beta$, and $\theta$. Additionally, I calculate the mean and variance for the beta distribution for each player. Mean represent the average probability of player winning each leg in each matches, and the result is similar as Luke Littler has the highest mean and Peter Wright has the lowest value. Variance for most player is around 0.2, except for Peter Wright (0.11), representing his probability of winning each leg has less variation.
