@@ -155,7 +155,7 @@ plot
 ## Part b
 Now, plot Altham's Multiplicative Binomial Distribution under the same parameters with $\theta=0.50$, $\theta=1$, and $\theta=1.5$. Use `ncol=1` in `facet_wrap()` to plot the PMFs in a single column for comparing.
 
-**Solurion**
+**Solution**
 
 ```{r}
 ggdat <- tibble(x = rep(seq(0, 11, 1),3), theta = c(rep(0.5, 12),rep(1,12),rep(1.5,12)))|>
@@ -179,7 +179,7 @@ What is your best assessment of what $\theta$ is doing in this setting. Consider
 **Note:** In lab 8, we saw that small $\theta$ meant wins came in bunches (clumped together), so there were more 2-0 wins in a best of three series.
 
 **Solution**
-When theta is greater, x, or the number of matches win, are likely to have higher probability at the center. This means when theta is lower, 6-0 is more likely and when theta is higher, 6-5 are more likely.
+When theta is greater, x, or the number of matches win, are likely to have higher probability at the center, which means wining 5 or 6 matches are more likely. This means when theta is lower, 6-0 is more likely and when theta is higher, 6-5 are more likely.
 
 # Question 2
 
@@ -188,12 +188,12 @@ Altham's Multiplicative Binomial Distribution does not typically simplify to the
 
 **Solution**
 
-$E(X^K) = \sum_{i=0}^{11} x_i^k f_x(x_i)$
+$E(X^K) = \sum_{i=0}^{11} i^k f_x(i)$
 
 ```{r}
 momdaltbinom <- function(p, theta, k){
   x <- 0:11
-  sum(x^k*daltbinom(x,11,0.5,theta))
+  sum(x^k*daltbinom(x,11,p,theta))
 }
 ```
 
@@ -223,7 +223,7 @@ Describe how you can use your answer to part c to find Maximum Likelihood estima
 
 **Solution**
 
-Use optimum() to find the parameter that allows the log likelihood function to have the greatest value, and set MLE in the function equal to True.
+Use optim() to find the parameter that allows the log likelihood function to have the greatest value, and set MLE in the function equal to True.
 
 # Lab 10
 Peter "Snakebite" Wright is a two-time Professional Darts Corporation World Champion (2020, 2022) and a former World No. 1. He is one of the sport's most decorated players, winning nearly 50 PDC titles including the World Matchplay, UK Open, and multiple European Championships. 
@@ -411,6 +411,7 @@ Win.each <- function(name){
 # winning x time in n legs with given probability and theta. 
 # If the player win the match, it ensures the last leg is a win, 
 # If the player lose the match, it ensures the last leg is a lose.
+# Since player did not play 11 legs, size is also a vector that contains different total legs each player played.
 
 Prob.daltbinom <- function(x, size, prob, theta){  
   sapply(1:length(x), function(i){  # Ensure it works on a vector
@@ -520,7 +521,7 @@ MLE.summary <- tibble(Name = names(player.turns),
                       Beta = NA,
                       Theta = NA,
                       Mean = NA,
-                      Variance = NA)
+                      sd = NA)
 
 # Repeat the process for each player
 for(i in 1:nrow(MLE.summary)){
@@ -534,7 +535,7 @@ for(i in 1:nrow(MLE.summary)){
   MLE.summary$Beta[i] <- beta
   MLE.summary$Theta[i] <- exp(mle$par[3])
   MLE.summary$Mean[i] <- alpha / (alpha + beta)
-  MLE.summary$Variance[i] <- ((alpha * beta)/((alpha + beta)^2 * (alpha + beta + 1))) ^ (1/2)
+  MLE.summary$sd[i] <- ((alpha * beta)/((alpha + beta)^2 * (alpha + beta + 1))) ^ (1/2)
 }
 ```
 
@@ -578,4 +579,4 @@ For each player in the 2024 Premier League season data, I compute the number of 
 
 I use the number of legs won in each match to compute the maximium likelihood estimates for $p$ and $\theta$ for each player, assuming the probability of the number of legs each player win in a match follows Altham's Multiplicative Binomial Distribution. The result demonstrates that the probability of each player winning a leg is mostly consistent with the result from winning proportion, as Luke Littler has the highest probability (0.59) and Peter Wright has the lowest probability (0.24). The higher the $\theta$ is, the more likely for players to win matches with results 6-5 than 6-0. For most players, it is around 1.1, and Peter Wright has the highest $\theta$ (1.30), and Rob Cross has the lowest $\theta$ (1.04).
 
-I repeat the process but with assuming the probability follows Altham's multiplicative Beta Binomial Distribution. I estimated the parameter $\alpha$, $\beta$, and $\theta$. Additionally, I calculate the mean and variance for the beta distribution for each player. Mean represent the average probability of player winning each leg in each matches, and the result is similar as Luke Littler has the highest mean and Peter Wright has the lowest value. Variance for most player is around 0.2, except for Peter Wright (0.11), representing his probability of winning each leg has less variation.
+I repeat the process but with assuming the probability follows Altham's multiplicative Beta Binomial Distribution. I estimated the parameter $\alpha$, $\beta$, and $\theta$. Additionally, I calculate the mean and variance for the beta distribution for each player. Mean represent the average probability of player winning each leg in each matches, and the result is similar as Luke Littler has the highest mean and Peter Wright has the lowest value. Standard deviation for most player is around 0.2, except for Peter Wright (0.11), representing his probability of winning each leg has less variation.
